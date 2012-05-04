@@ -66,6 +66,7 @@ class RabbitmqGrailsPlugin {
         def connectionFactoryPassword = connectionFactoryConfig?.password
         def connectionFactoryVirtualHost = connectionFactoryConfig?.virtualHost
         def connectionFactoryHostname = connectionFactoryConfig?.hostname
+        def connectionFactoryHeartbeat = connectionFactoryConfig?.heartbeat
         def connectionChannelCacheSize = connectionFactoryConfig?.channelCacheSize ?: 10
 
         def messageConverterBean = rabbitmqConfig.messageConverterBean
@@ -73,7 +74,7 @@ class RabbitmqGrailsPlugin {
         if(!connectionFactoryUsername || !connectionFactoryPassword || !connectionFactoryHostname) {
             log.error 'RabbitMQ connection factory settings (rabbitmq.connectionfactory.username, rabbitmq.connectionfactory.password and rabbitmq.connectionfactory.hostname) must be defined in Config.groovy'
         } else {
-          
+
             log.debug "Connecting to rabbitmq ${connectionFactoryUsername}@${connectionFactoryHostname} with ${configHolder.getDefaultConcurrentConsumers()} consumers."
           
             def connectionFactoryClassName = connectionFactoryConfig?.className ?:
@@ -81,10 +82,17 @@ class RabbitmqGrailsPlugin {
             def parentClassLoader = getClass().classLoader
             def loader = new GroovyClassLoader(parentClassLoader)
             def connectionFactoryClass = loader.loadClass(connectionFactoryClassName)
-            rabbitMQConnectionFactory(connectionFactoryClass, connectionFactoryHostname) {
+
+            com.rabbitmq.client.ConnectionFactory rabbitConnectionFactory = new com.rabbitmq.client.ConnectionFactory()
+            if (connectionFactoryHeartbeat) {
+                rabbitConnectionFactory.setRequestedHeartbeat(connectionFactoryHeartbeat);
+            }
+
+            rabbitMQConnectionFactory(connectionFactoryClass, rabbitConnectionFactory) {
                 username = connectionFactoryUsername
                 password = connectionFactoryPassword
                 channelCacheSize = connectionChannelCacheSize
+                host = connectionFactoryHostname
 
                 if (connectionFactoryVirtualHost) {
                     virtualHost = connectionFactoryVirtualHost
